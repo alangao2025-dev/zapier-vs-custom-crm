@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zapier 还是定制开发？——以 Rex CRM 为例的中文总结</title>
+<style>
+  :root{--bg:#f6f7fb;--card:#fff;--ink:#1f2430;--muted:#5d6475;--accent:#ff4f00;--blue:#2f6fed;--line:#e4e7ef;--green:#1a9b5b;--red:#d64545}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.75}
+  header{background:linear-gradient(135deg,#1f2430,#38415a);color:#fff;padding:56px 20px 48px}
+  .wrap{max-width:920px;margin:0 auto;padding:0 20px}
+  header h1{font-size:30px;line-height:1.35;margin:0 0 12px}
+  header p{margin:4px 0;color:#c9cfdd}
+  header a{color:#ffb38a}
+  main{padding:32px 0 60px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:26px 28px;margin-bottom:22px}
+  h2{font-size:21px;margin:0 0 14px;padding-left:12px;border-left:4px solid var(--accent)}
+  h3{font-size:17px;margin:18px 0 8px}
+  ul,ol{padding-left:22px;margin:8px 0}
+  li{margin:5px 0}
+  .tldr{background:#fff7f2;border-color:#ffd6c0}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-top:14px}
+  .stat{background:var(--bg);border-radius:12px;padding:16px;text-align:center}
+  .stat b{display:block;font-size:28px;color:var(--accent)}
+  .stat span{font-size:13px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}
+  th,td{border:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top}
+  th{background:#f0f2f8}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .box{border-radius:12px;padding:14px 18px}
+  .ok{background:#eefaf3;border:1px solid #bfe8d1}
+  .no{background:#fdf0f0;border:1px solid #f3c5c5}
+  .ok h3{color:var(--green);margin-top:4px}.no h3{color:var(--red);margin-top:4px}
+  .note{background:#f1f5ff;border-left:4px solid var(--blue);padding:10px 14px;border-radius:6px;color:#2c3a5e;margin:12px 0}
+  code{background:#f0f2f8;padding:1px 6px;border-radius:4px;font-size:.92em}
+  details{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0}
+  summary{cursor:pointer;font-weight:600}
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:0 20px 40px}
+  @media(max-width:640px){.two{grid-template-columns:1fr}header h1{font-size:24px}section{padding:20px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Zapier 还是定制开发？<br>Rex CRM 通过 Zapier 只开放 35 个操作，而 API 有 2,620 个</h1>
+    <p>原文：<a href="https://www.13labs.au/guides/zapier-vs-custom-build-crm-automation" target="_blank" rel="noopener">Zapier or a Custom Build? Rex CRM Exposes 35 Operations Through Zapier and 2,620 Through Its API</a></p>
+    <p>来源：13Labs（澳大利亚墨尔本）· 作者 13Labs Team · 发布于 2026-07-29 · 原文阅读约 12 分钟</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section class="tldr">
+  <h2>一句话结论</h2>
+  <p><strong>你需要的触发器（trigger）和动作（action）都在厂商公布的连接器清单上，就用 Zapier 这类连接器；只要缺一个，就直接对接 API 开发。</strong>缺的功能先去 API 文档里查，别急着判定“做不到”。</p>
+  <p>连接器 App 是厂商从 API 里挑出来的一小部分，并不等于完整 API。文章用房产中介 CRM 软件 Rex 做例子，因为 Rex 两边的数字都公开，差距可以直接数出来：</p>
+  <div class="stats">
+    <div class="stat"><b>2,620</b><span>API 方法数（分属 278 个 service）</span></div>
+    <div class="stat"><b>35</b><span>Zapier 操作数<br>20 触发器 + 11 写入 + 4 查询</span></div>
+    <div class="stat"><b>3,600/小时</b><span>每个中介账号的 API 速率上限<br>相当于持续每秒 1 次</span></div>
+    <div class="stat"><b>24 小时</b><span>缓存数据必须至少每 24 小时刷新一次</span></div>
+  </div>
+  <p class="note">作者特别说明，这不是在批评 Rex 或 Zapier，连接器本来就是挑选出来的子集。文章也不比较 Zapier、Make、n8n 三者，只回答一个问题：连接器平台够不够用，还是必须自己写代码直接调 API。</p>
+</section>
+
+<section>
+  <h2>1. Rex 的 Zapier 连接器到底能做什么</h2>
+  <table>
+    <tr><th style="width:110px">类型</th><th style="width:60px">数量</th><th>具体内容</th></tr>
+    <tr><td>触发器</td><td>20</td><td>新建估价（Appraisal）、新建/更新日历事件、新建/更新联系人、联系人加标签、新建合同、合同状态变更、新建线索、新建/更新/发布房源、房源成交或出租、房源加标签、联系人加入/移出邮件列表、新建备注、新增看房（Open Home）参与者、物业更新、物业加标签</td></tr>
+    <tr><td>写入动作</td><td>11</td><td>发邮件、分配线索、新建线索、新建匹配档案（Match Profile）、新建备注、新建提醒、发短信、加标签、移除标签、新建跟进序列（Track）、移除全部跟进序列</td></tr>
+    <tr><td>查询动作</td><td>4</td><td>查询完整的日历事件、联系人、房源、物业信息</td></tr>
+  </table>
+  <p>作者认为这些覆盖面<strong>很实用</strong>：获取线索、打标签、写备注、设提醒、发消息都有。如果你的流程全部落在这 35 个操作里，用连接器就对了，请开发者是浪费钱。</p>
+  <p>补充技术事实：Rex API 只支持 POST 请求，用简单的 token 认证；278 个 service 中有 43 个有完整的 OpenAPI 文档。</p>
+</section>
+
+<section>
+  <h2>2. 关键的不对称：Zapier 只能写“外围”数据，不能写核心记录</h2>
+  <div class="two">
+    <div class="box ok"><h3>✅ 通过 Zapier 可以新建</h3><p>提醒、备注、线索、跟进序列（Track）、匹配档案，以及发邮件和短信</p></div>
+    <div class="box no"><h3>❌ 通过 Zapier 不能新建或更新</h3><p>联系人（Contact）、房源（Listing）、物业（Property）、估价（Appraisal）</p></div>
+  </div>
+  <p>原因：写错了容易撤销的操作，厂商愿意开放；写错了会污染中介数据库的操作，厂商就留着不开放。</p>
+  <p><strong>但这是 Zapier 的限制，不是平台的限制。</strong>API 里有 <code>Appraisals::create</code> 和 <code>Contacts::create</code>，Listings 有 30 个带文档的方法，包括新建和更新。所以要分清两种情况：</p>
+  <ul>
+    <li>“Rex 做不到”：这个流程只能放弃；</li>
+    <li>“Rex 能做，只是连接器做不到”：只是成本问题，而且通常不大，往往在现有 Zap 旁边加一个小的后台进程（worker）就行，不用全部推倒重写。</li>
+  </ul>
+  <p class="note">最典型的例子：Zapier 有“新建估价”触发器，却没有“创建估价”动作。也就是说，有了估价它能做出反应，但它没法自己记录一条估价。</p>
+</section>
+
+<section>
+  <h2>3. 写代码之前，速率限制就已经决定了架构</h2>
+  <ul>
+    <li>上限是<strong>每个中介账号每小时 3,600 次请求</strong>，相当于持续每秒 1 次。Rex 说现在是“软限制”，以后会严格执行。多个中介账号加起来可以超过 3,600，单个账号不行。</li>
+    <li>对 3,000 个联系人逐条调用就是 3,000 次请求，每小时跑一次就把额度全花在读已有数据上了。所以要<strong>批量处理加本地缓存，不要在实时流程里逐条循环</strong>。</li>
+    <li>不同查询格式一次能返回的行数不同：
+      <ul>
+        <li>默认格式：联系人和估价每次 100 行，提醒每次 500 行</li>
+        <li><code>etags</code> 格式：最多 50,000 行</li>
+        <li><code>ids</code> 格式：最多 1,000,000 行</li>
+        <li>联系人另有 <code>name_etags</code> 格式，最多 10,000 行</li>
+      </ul>
+    </li>
+    <li>这些格式没有任何连接器提供。Zapier 的查询动作一次只返回一条完整记录，所以只要需要对整个数据库做分析，就已经超出连接器的能力。</li>
+    <li>房源、联系人、楼宇、物业的读取和查询支持 <code>field</code> / <code>extra field</code> 参数，只返回需要的字段。请求次数不会变少，但能省时间，在 10 秒响应时限下有用。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>4. Webhook 所有套餐都能用，但一出故障就会直接停掉</h2>
+  <ul>
+    <li>支持 50 多种 webhook 事件，覆盖常用 service 的新建和更新；<strong>所有订阅套餐都能用</strong>，不只限企业版。</li>
+    <li>有两种数据格式：一种同时发送变更前和变更后的完整记录；另一种只发 service、记录 ID、账号 ID 和操作人，需要你自己再去查详情。</li>
+    <li>健康判定：24 小时内失败率 ≥ 99%，就会被标记为不健康。<strong>失败</strong>指返回码不在 102/200/201/202/204 之内，或者响应时间 ≥ 10 秒。</li>
+    <li>被标记后推送<strong>完全停止，需要人工恢复</strong>；而且<strong>停掉期间发生的事件不会补发</strong>。接收端如果在某个忙碌的下午变慢，可能悄无声息地丢掉一整天的房源更新。</li>
+  </ul>
+  <p class="note">Rex 官方推荐的做法：<strong>webhook 加每晚一次的 e-tag 同步</strong>。批量拉取“ID + 版本号”，和本地数据对比，只抓有变化的记录。Zapier 只会接收 webhook，不会做这种核对。另外，接收端要<strong>收到就立刻确认、之后再异步处理</strong>，这是基本要求。</p>
+</section>
+
+<section>
+  <h2>5. 直接对接 API 有一笔大多数对比文章都没提的商业成本</h2>
+  <ul>
+    <li><strong>集成账号要占一个付费用户席位</strong>：Rex 集成用真实的 Rex 用户身份登录，会占用中介的用户名额。所以自建方案从上线第一天起，可能就让客户每月多付一个席位的钱，而且得由你去跟客户解释。</li>
+    <li><strong>解决办法是 Verified Integrator（认证集成商）计划</strong>：通过认证后，集成账号不再占付费席位。前提是：集成已经开发完成、至少在一个客户账号上线，并按文档要求发送 app identifier header。通过表单申请，结果大约需要 <strong>5–10 个工作日</strong>。</li>
+    <li>顺序上很尴尬：必须先做完、先有客户在用，才能申请认证。所以席位费偏偏出现在最难证明价值的那段时间，交付之后才能免掉。</li>
+    <li><strong>只能等客户邀请才能接入</strong>：Rex 没有公开的应用市场，也没有可以自助注册的开发者后台，只能用客户账号里真实用户的用户名和密码登录。这等于要排队等别人回邮件，项目估算里几乎没人算这一项。建议把它单列成一项任务，<strong>最先启动</strong>。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>6. 什么时候继续用连接器</h2>
+  <p>下面三个条件<strong>同时满足</strong>时继续用：</p>
+  <ol>
+    <li>需要的触发器和动作都在清单上；</li>
+    <li>业务量不大；</li>
+    <li>流程是线性的：“发生 A，就做 B，再做 C”。</li>
+  </ol>
+  <ul>
+    <li>如果流程要记住三步之前的状态、按结果走不同分支、或者等某个外部事件再继续，用连接器硬拼出来的东西比它替代的代码更难调试。</li>
+    <li>Zapier 按 task 计费，每个动作都算一次。量小时无所谓，量大时要和“自建程序的托管费 + 席位费”比一比。</li>
+    <li><strong>先看 CRM 自带什么</strong>：Rex 自带自动化规则、可以按账号时区定时运行的工作流（cron 表达式）、多步跟进序列（Tracks），还有可以定时发送的循环提醒。可能两种方案都用不着。</li>
+  </ul>
+  <p class="note">作者的立场（两种方案都做过）：<strong>大多数小企业应该先用连接器，而且用的时间应该比开发者建议的更长。</strong>最常见的失败不是“Zapier 不够用”，而是本来三个 Zap 就能搞定的流程被做成了定制开发，后来又没人维护。<strong>请人开发之前，先把流程手动跑三遍。</strong></p>
+</section>
+
+<section>
+  <h2>7. 什么时候值得定制开发（满足任意一条即可）</h2>
+  <ol>
+    <li><strong>需要写核心记录</strong>：比如在 Rex 中新建或更新联系人、房源、物业、估价。Zapier 不支持，但 API 支持。</li>
+    <li><strong>需要批量处理整个数据库</strong>：要用到 <code>etags</code> / <code>ids</code> 查询格式（最多 5 万 / 100 万行），同时不能超过每小时 3,600 次的上限。</li>
+    <li><strong>需要保证数据不丢</strong>：webhook 出故障会直接停掉、而且不补发，所以定期核对实际上是必需的。</li>
+    <li><strong>流程要跨步骤记住状态、能暂停和恢复，或者需要人工审批和操作记录</strong>：凡是会给真实客户发消息的流程，都应该有审批环节。</li>
+    <li><strong>业务量大到按 task 付费比自建更贵</strong>：先算清每月实际有多少 task。作者说，大多数企业会高估这个数，结果花钱做了根本不需要的开发。</li>
+  </ol>
+</section>
+
+<section>
+  <h2>8. 不管选哪条路，API 条款都要遵守</h2>
+  <ul>
+    <li>没有明确许可，<strong>不得复制或存储数据</strong>；如果要缓存，<strong>至少每 24 小时刷新一次</strong>。所以不能建一个长期的本地副本来代替 API 查询，想“把 CRM 数据同步进自己的数据仓库做报表”，得先改方案。</li>
+    <li>数据必须<strong>强加密</strong>存储和传输；用户要求删除时，必须删除收集到的全部数据。</li>
+    <li><strong>不得出售、出租、转授权或转发 API 访问权限</strong>；想把方案卖给多家中介，每个客户都要自己跟 Rex 建立合作关系。</li>
+    <li>通过 API 拿到的联系方式，<strong>没有联系人明确同意不能用来对外联系</strong>，也不能用于任何广告。这条是在澳大利亚本地法规之外额外附加的。</li>
+    <li>Rex 保留开发同类产品的权利，跟你的应用竞争。</li>
+  </ul>
+  <p class="note">用 Zapier 也绕不开这些条款。条款约束的是 API 访问，而连接器说到底就是“换了个更友好界面的 API 访问”。</p>
+</section>
+
+<section>
+  <h2>9. 常见问题（原文 FAQ 摘要）</h2>
+  <details><summary>怎么判断我的流程连接器能不能做？</summary><p>用大白话写下触发条件和每一步动作，再按名称逐项对照厂商清单（Rex 是 20 个触发器、11 个写入动作、4 个查询动作）。全对得上就没问题；有对不上的，先去 API 文档（278 个 service、2,620 个方法）里查，再下结论。</p></details>
+  <details><summary>Zapier 能在 Rex 里创建估价吗？</summary><p>不能。有“新建估价”触发器，但没有创建估价的动作。API 里有 <code>Appraisals::create</code>，所以这是连接器的限制，不是平台的限制。</p></details>
+  <details><summary>Rex 的速率限制是多少？</summary><p>每个中介账号每小时 3,600 次，相当于持续每秒 1 次。这就不能实时逐条处理联系人，只能批量查询加本地缓存，和连接器“每个事件发一次请求”的架构完全不同。</p></details>
+  <details><summary>能只靠 webhook 吗？</summary><p>不能。24 小时内失败率 ≥ 99%（响应 ≥ 10 秒也算失败）就会被停掉，停掉期间的事件不会补发。Rex 自己也建议同时做每晚一次的 e-tag 同步。</p></details>
+  <details><summary>自建集成会让客户多付一个席位吗？</summary><p>前期会。通过 Verified Integrator 认证后可以免掉，但要先做完、先在一个客户账号上线、并发送 app identifier header，审核大约 5–10 个工作日。</p></details>
+  <details><summary>用 Zapier 能绕开 API 条款吗？</summary><p>不能。24 小时刷新缓存、禁止转发访问权限、按要求删除数据、对外联系前要取得明确同意，这些规定一样适用。</p></details>
+</section>
+
+<section>
+  <h2>决策清单</h2>
+  <ol>
+    <li>逐项对照连接器清单，全都对得上 → 用连接器。</li>
+    <li>有对不上的 → 先查 API 文档；API 能做而连接器不能，通常只是小成本，不是死路。</li>
+    <li>先看 CRM 自带的自动化功能，可能两种方案都用不着。</li>
+    <li>先用连接器，手动跑三遍再考虑请人开发。</li>
+    <li>出现第 7 节五种情况中的任意一种 → 定制开发。</li>
+    <li>自建时：批量加缓存，webhook 收到即确认、异步处理，每晚做 e-tag 核对。</li>
+    <li>成本算三年总账：连接器的 task 费用 vs 自建的托管费 + 席位费 + 认证周期 + 等待客户邀请的时间。</li>
+    <li>两条路都要遵守 API 条款：24 小时缓存、不得转售、营销要取得同意。</li>
+  </ol>
+</section>
+
+</main>
+<footer>本页为原文的中文总结，仅供参考。数字以原文为准（原文发布于 2026-07-29）。<br>原文：<a href="https://www.13labs.au/guides/zapier-vs-custom-build-crm-automation" target="_blank" rel="noopener">13labs.au</a></footer>
+</body>
+</html>
